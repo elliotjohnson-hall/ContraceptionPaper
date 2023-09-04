@@ -1,0 +1,967 @@
+---
+title: "Effects of Covid-19 on contraceptive prescribing in Scottish General Practices."
+author: "Elliot Johnson-Hall"
+date: "`r Sys.Date()`"
+output:
+  word_document: default
+  pdf_document:
+    keep_tex: yes
+    number_sections: yes
+bibliography: references.bib
+header-includes:
+    - \usepackage{setspace}\doublespacing
+---
+
+```{=latex}
+\captionsetup{textfont={small,it},labelfont=bf,labelsep=period}
+```
+
+```{r Setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, error = F, message = F, warning = F)
+```
+
+```{r Install and load required libraries}
+if (!require(pacman))
+  install.packages("pacman")
+pacman::p_load(
+  "jsonlite",
+  "tidyverse",
+  "glue",
+  "ckanr",
+  "ggplot2",
+  "here",
+  "lubridate",
+  "patchwork",
+  "gt",
+  "vroom"
+)
+```
+
+# Title {-}
+
+Effects of Covid-19 on contraceptive prescribing in Scottish General Practices.
+
+# Short title {-}
+
+Covid-19 and contraception in Scotland.
+
+# Author information {-}
+
+Elliot O. Johnson-Hall
+
+Orcid: 0009-0003-5105-034X
+
+elliot@elliotjh.com
+
+7 West Park,
+Bristol,
+BS8 2LX,
+UK.
+
+# Keywords {-}
+
+- Covid-19
+- Contraception
+- General practice
+\newpage
+
+# Abreviations {-}
+
+|  |  |
+| --- | ------ |
+|COCP | Combined oral contraceptive pill|
+|POP  | Progesterone-only pill|
+|LARC | Long-acting reversible contraception|
+|BNF  | British National Formulary|
+|IUS  | Intra-uterine system|
+|IUD  | Intra-uterine device|
+|EC   | Emergency contraception|
+|NHS  | National Health Service|
+|UK   | United Kingdom|
+# Abstract {-}
+
+
+
+# Introduction
+
+@Walker2022 revealed changes in prescribing of contraception in English general practices between 2019 and 2020 due to the SARS-CoV-2 pandemic, and associated restrictions. Here it will be examined if this is the case in Scotland as well. This study examines changes in contraception prescribed by general practices in Scotland from January 2016 to January 2023.
+
+One limitation of Walker's [-@Walker2022] study is the comparison of just three months of prescribing data in both 2019 and 2020. Here, a much longer timeframe is used; with data from January 2016 to January 2023.
+
+To the best of the author's knowledge, no retrospective long-term analysis has been conducted to assess the impacts of restrictions due to Covid-19 on access to reproductive healthcare in the UK.
+
+In Scotland, as in the rest of the UK, the majority of healthcare is supplied free at the point of use by the National Health Service. This dataset does not cover private prescriptions, but this is likely to be a small proportion of contraceptive prescriptions in Scotland.
+
+# Materials and methods
+
+This study is a retrospective longitudinal study from January 2016 to January 2023. Data from the Scottish Health and Social Care Open Data repository (https://www.opendata.nhs.scot) was used. This dataset provides an overview of prescriptions dispensed in the community throughout Scotland. The overwhelming majority of these are prescribed in general practices, however some may be from other non-medical primary care prescribers, as well as prescriptions from hospitals dispensed in community pharmacies. The dataset is 100% complete for items dispensed in the community. However, it excludes items dispensed in hospitals, prisons, schools, and private prescriptions as well as prescriptions not presented for dispensing and those items dispensed but not submitted for payment. All data is aggregated and entirely anonymous.
+
+R v4.3.0 [@RCoreTeam2021] was used to create a script to access data from the NHS Scotland Open Data API. Initially, the complete dataset is filtered using a SQL query to extract only contraceptive medicines by returning results with truncated BNF item codes beginning 07030* or 21040*. Subsequently, these data were categorised by truncated British National Formulary (BNF) [@BNF2023] code (Table 1).
+
+```{r Table 1}
+Table1Data <- tibble("Truncated BNF Item Code" = c("0703021*", "0703010*", "0703022M*", "0703022N*", "0703023*", "21040*", "0703022P*", "0703050*",  "0703010E0BG*", "0703011*"),
+"Category" = c("POP", "COCP", "Injection", "Injection", "IUS", "IUD", "Implant",  "EC", "Patch", "Ring"),
+"Example BNF Item Description" = c("Desogestrel  Tablet 75mcg", "Rigevidon  Tablet", "Depo-Provera Injection 150mg/ml 1ml Pre-filled Syringes", "Noristerat Injection 200mg/ml 1ml Ampoules", "Mirena Intra-uterine System", "T-Safe 380A QL Intra-uterine Contraceptive Device", "Nexplanon Implant 68mg", "Upostelle  Tablet 1500mcg", "Evra Transdermal Patch", "NuvaRing 0.12mg/0.015mg per day Vaginal Delivery System"))
+Table1 <- gt(Table1Data) %>% 
+  tab_header(title = md("**Table 1** Truncated BNF item codes used during data extraction and example medicines in these categories."))
+Table1
+```
+
+Due to inherent differences in prescribing frequencies between contraceptive methods, a standardised metric *months of contraceptive coverage* was calculated:
+
+$$Months\ of\ contraceptive\ coverage\quad =\quad \frac{Quantity\ of\ items\ dispensed}{Item\ pack\ size}\quad *\quad Duration\ of\ contraceptive\ action$$
+
+For example, an IUD with a five-year lifespan provides 60 months of contraceptive coverage (1/1 * 60), whereas a six-month prescription of a short-acting COCP provides 6 months of contraceptive coverage (126/21 * 1) despite 126 items being dispensed. To compare the dispensing of different contraceptives this results in the use of the unit months of contraceptive coverage per month ($MCC \cdot month^{-1}$)
+
+Three different periods of time are considered: *pre-Covid-19*, defined as 01/01/2016-01/04/2020, *Covid-19* 01/04/2020-01/04/2022, and then *post-Covid-19* 01/04/2022-01/01/2023.
+
+These are based on the beginning and end of social restrictions in Scotland due to Covid-19. Soctland entered the highest level of restrictions on daily activities in the following periods:
+23/03/2020-19/07/2020
+26/12/2020-16/04/2021
+26/12/2021-21/03/2022
+Here, this is termed *active lockdown*.
+
+## Patient and public involvement
+There was no public or patient involvement in this study.
+
+```{r Wrangling functions}
+Wrangle <- function(Dataset) {
+CompleteDataset <- CompleteDataset %>%
+  mutate(HealthBoard = case_when(is.na(HBT) ~ HBT2014,!is.na(HBT) ~ HBT)) %>%
+  select(-c(`_id`, `_full_text`, HBT2014, HBT))
+
+HealthBoards <- vroom("https://www.opendata.nhs.scot/dataset/9f942fdb-e59e-44f5-b534-d6e17229cc7b/resource/652ff726-e676-4a20-abda-435b98dd7bdc/download/hb14_hb19.csv") %>%
+  mutate(HealthBoard = HB) %>%
+  select(HealthBoard, HBName)
+
+GPPractices <- vroom("https://www.opendata.nhs.scot/dataset/f23655c3-6e23-4103-a511-a80d998adb90/resource/1a15cb34-fcf9-4d3f-ad63-1ba3e675fbe2/download/practice_contactdetails_oct2022-open-data.csv") %>%
+  mutate(GPPractice = as.character(PracticeCode), HealthBoard = HB)
+
+CompleteDataset <- left_join(CompleteDataset, HealthBoards)
+CompleteDataset <- left_join(CompleteDataset, GPPractices)
+
+remove(list = c("GPPractices", "HealthBoards", "DataList", "DataFrameList", "ResourceIDs", "BaseURL", "ChoiceToUpdate", "NumberOfRecordsFound", "NumberOfRecordsRetrieved", "Record", "SQL", "ResourceID", "TempResult"))
+}
+
+WrangleTempDataframe <- function(Dataset) {
+Dataset <- Dataset %>%
+  mutate(HealthBoard = HBT2014) %>%
+  select(-c(`_id`, `_full_text`, HBT2014))
+
+HealthBoards <- vroom("https://www.opendata.nhs.scot/dataset/9f942fdb-e59e-44f5-b534-d6e17229cc7b/resource/652ff726-e676-4a20-abda-435b98dd7bdc/download/hb14_hb19.csv") %>%
+  mutate(HealthBoard = HB) %>%
+  select(HealthBoard, HBName)
+
+GPPractices <- vroom("https://www.opendata.nhs.scot/dataset/f23655c3-6e23-4103-a511-a80d998adb90/resource/1a15cb34-fcf9-4d3f-ad63-1ba3e675fbe2/download/practice_contactdetails_oct2022-open-data.csv") %>%
+  mutate(GPPractice = as.character(PracticeCode), HealthBoard = HB)
+
+Dataset <- left_join(Dataset, HealthBoards)
+Dataset <- left_join(Dataset, GPPractices)
+}
+```
+
+```{r Write Data.RDS}
+WriteOut <- function(Dataframe) {
+  if (dir.exists(here("Data")) == TRUE) {
+  unlink(here("Data"), recursive = TRUE)
+  dir.create(here("Data"))
+  write_rds(CompleteDataset, file = here("Data", "Data.RDS"))
+} else {
+  dir.create(here("Data"))
+  write_rds(CompleteDataset, file = here("Data", "Data.RDS"))
+}
+}
+```
+
+```{r Load Data.RDS}
+if (file.exists(here("Data", "Data.RDS"))) {
+  CompleteDataset <- read_rds(here("Data", "Data.RDS"))
+} else {
+  if (exists("CompleteDataset") == FALSE) {
+    CompleteDataset <- NULL
+  } else {
+    CompleteDataset <- CompleteDataset
+  }
+}
+
+```
+
+```{r Connect to NHS Scotland Open Data API and import data on contraception prescriptions dispensed, eval=F}
+BaseURL <-  "https://www.opendata.nhs.scot/"
+
+ResourceIDs <-
+  package_show(id = "84393984-14e9-4b0d-a797-b288db64d088",
+               url = BaseURL,
+               as = "table")$resources %>% select(id)
+
+NumberOfRecordsFound <- nrow(ResourceIDs)
+NumberOfRecordsRetrieved <-
+  length(unique(CompleteDataset$RecordNumber))
+
+if (NumberOfRecordsFound > NumberOfRecordsRetrieved) {
+  ChoiceToUpdate <-
+    menu(
+      title = glue(
+        "{NumberOfRecordsFound - NumberOfRecordsRetrieved} new records found. Would you like to update the data?"
+      ),
+      choices = c("Yes", "No")
+    )
+
+  if (ChoiceToUpdate == 1L) {
+    message("Updating data. This may take some time.")
+    for (Record in 1:NumberOfRecordsFound) {
+      message(glue("Retrieving record {Record} of {NumberOfRecordsFound}."))
+      ResourceID <- ResourceIDs[Record, ]
+      SQL <-
+        glue(
+          'SELECT * from "{ResourceID}" WHERE ',
+          '"BNFItemCode"',
+          " LIKE '07030%' OR ",
+          '"BNFItemCode"',
+          " LIKE '21040%'"
+        )
+      TempResult <- ds_search_sql(SQL, url = BaseURL, as = "json")
+      DataList <- fromJSON(TempResult)
+      assign(glue("DF{Record}"), DataList$result$records)
+      assign(glue("DF{Record}"),
+             get(glue("DF{Record}")) %>% mutate(RecordNumber = glue("{Record}")))
+      message(
+        glue(
+          "Success! {round(
+          (Record / NumberOfRecordsFound * 100), 2)
+          }% complete."
+        )
+      )
+    }
+    DataFrameList <- mget(ls(pattern = "DF"))
+    if (is.null(CompleteDataset) == FALSE) {
+      DFTemp <- bind_rows(DataFrameList)
+      WrangleTempDataframe(DFTemp)
+      CompleteDataset <- left_join(CompleteDataset, DFTemp)
+      remove(list = ls(pattern = "DF"))
+    } else {
+      CompleteDataset <- bind_rows(DataFrameList)
+      remove(list = ls(pattern = "DF"))
+    }
+  }
+  else {
+    message("Exited successfully.")
+  }
+}
+```
+
+```{r Write out Data.RDS, eval=F}
+CompleteDataset <- CompleteDataset %>% 
+select(c(NumberOfPaidItems:PaidDateMonth, RecordNumber))
+WriteOut(CompleteDataset)
+```
+
+```{r Periods}
+# Now the data on contraception is available in the local workspace, time to wrangle it
+
+# Months between dates
+# Jan 2016 to Apr 2020
+Period1 <- 51
+
+# Apr 2020 to Apr 2022
+Period2 <- 24
+
+# May 2022 to Jan 2023
+Period3 <- 8
+
+TotalMonths  <- sum(Period1 + Period2 + Period3)
+```
+
+```{r Wrangle CompleteDataset}
+CompleteDataset <- CompleteDataset %>%
+  filter(between(ym(PaidDateMonth), ym("201601"), ym("202301"))) %>% 
+  mutate(
+    PaidDateMonth = ym(PaidDateMonth),
+    PaidQuantity = as.integer(PaidQuantity),
+    # 1 = Pre-Covid; 2 = During Covid; 3 = Post-Covid
+    Period = as.factor(
+      case_when(
+        PaidDateMonth < dmy("01/04/2020") ~ "1",
+        between(PaidDateMonth, dmy("01/04/2020"), dmy("01/04/2022")) ~ "2",
+        PaidDateMonth > dmy("01/04/2022") ~ "3"
+      )
+    ),
+    TotalMonths = case_when(Period == 1 ~ 31119114,
+                            Period == 2 ~ 12500003,
+                            Period == 3 ~ 5520534),
+    Months = case_when(Period == 1 ~ Period1,
+                       Period == 2 ~ Period2,
+                       Period == 3 ~ Period3),
+    Type = as.factor(case_when(
+      str_detect(BNFItemCode, "0703021") ~ "POP",
+      str_detect(BNFItemCode, "0703010") &
+        str_detect(BNFItemDescription, "TAB") ~ "COCP",
+      str_detect(BNFItemCode, "0703022M|0703022N") ~ "Injection",
+      str_detect(BNFItemCode, "0703023") ~ "IUS",
+      str_detect(BNFItemCode, "21040") ~ "IUD",
+      str_detect(BNFItemCode, "0703022P") ~ "Implant",
+      str_detect(BNFItemCode, "0703050") ~ "EC",
+      str_detect(BNFItemCode, "0703010E0BG") ~ "Patch",
+      str_detect(BNFItemCode, "0703011") ~ "Ring",
+      str_detect(BNFItemCode, "0703030") ~ "Jelly"
+    )),
+    ProtectionLength = case_when(
+      str_detect(BNFItemCode, "0703021") ~ 1,
+      str_detect(BNFItemCode, "0703010") &
+        str_detect(BNFItemDescription, "TAB") ~ 1,
+      str_detect(BNFItemCode, "0703022M|0703022N") ~ 3,
+      str_detect(BNFItemCode, "0703023") ~ 60,
+      str_detect(BNFItemCode, "21040") ~ 60,
+      str_detect(BNFItemCode, "0703022P") ~ 36,
+      str_detect(BNFItemCode, "0703010E0BG") ~ 21,
+      str_detect(BNFItemCode, "0703011") ~ 21
+    ),
+    PackSize = case_when(
+      str_detect(BNFItemCode, "0703021") ~ 21,
+      str_detect(BNFItemCode, "0703010") &
+        str_detect(BNFItemDescription, "TAB") ~ 21,
+      str_detect(BNFItemCode, "0703022M|0703022N") ~ 1,
+      str_detect(BNFItemCode, "0703023") ~ 1,
+      str_detect(BNFItemCode, "21040") ~ 1,
+      str_detect(BNFItemCode, "0703022P") ~ 1,
+      str_detect(BNFItemCode, "0703010E0BG") ~ 3,
+      str_detect(BNFItemCode, "0703011") ~ 1
+    ),
+    MonthsContraception = (PaidQuantity / PackSize) * ProtectionLength,
+    Group = case_when(
+  str_detect(Type, "POP|COCP") ~ "Oral",
+  str_detect(Type, "IUS|IUD|Injection|Implant") ~ "LARC",
+  str_detect(Type, "EC") ~ "EC",
+  str_detect(Type, "POP|COCP|IUS|IUD|Injection|Implant|EC", negate = T) ~ "Other"),
+  ECType = case_when(str_detect(BNFItemCode, "0703050B") ~ "ULI",
+                            str_detect(BNFItemCode, "0703050A") ~ "LEV"),
+  Lockdown = as.factor(
+    case_when(
+      between(PaidDateMonth, dmy("23/03/2020"), dmy("19/07/2020")) ~ "Y",
+      between(PaidDateMonth, dmy("26/12/2020"), dmy("16/04/2021")) ~ "Y",
+      between(PaidDateMonth, dmy("26/12/2021"), dmy("21/03/2022")) ~ "Y",
+      .default = "N"
+      )),
+  Period2 = factor(
+    case_when(
+      PaidDateMonth < dmy("01/04/2020") & Lockdown == "N" ~ "1",
+      between(PaidDateMonth, dmy("01/04/2020"), dmy("01/04/2022")) & Lockdown == "N" ~ "2",
+      between(PaidDateMonth, dmy("01/04/2020"), dmy("01/04/2022")) & Lockdown == "Y" ~ "4",
+      PaidDateMonth > dmy("01/04/2022") & Lockdown == "N" ~ "3"
+      )))
+CompleteDataset$MonthsContraception <- CompleteDataset$MonthsContraception %>% replace_na(0)
+CompleteDataset <- CompleteDataset %>% 
+  filter(!Type == "Jelly")
+CompleteDataset$Period2 <- fct_relevel(CompleteDataset$Period2, "1", "4", "2", "3")
+```
+
+```{r ggplot2 Theme}
+theme_elliot <- function() {
+  theme_minimal() +
+    theme(
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor.x = element_blank(),
+      legend.position = "bottom",
+      plot.tag = element_text(face = "bold"),
+      axis.title = element_text(face = "bold"),
+      legend.title = element_text(face = "bold"),
+      plot.title = element_text(face = "bold",
+                                hjust = 0.5,
+                                size = 16),
+      axis.line = element_line(
+        colour = "black",
+        linewidth = 0.5,
+        linetype = "solid",
+        lineend = "butt"),
+      axis.ticks = element_line(colour = "black"),
+      axis.ticks.length = unit(1, "mm"))
+}
+```
+# Results
+
+## Overview
+
+Short-acting oral contraceptive pills, both COCP and POP, remained the most dispensed form of contraception throughout the duration of this study. However, the contraceptive patch increased in popularity in Scotland during and after the Covid-19 pandemic, laterly overtaking COCP (Figure 1).
+
+Overall, combined hormonal contraceptives containing both oestrogens and progesterones were the most dispensed forms of contraception. Dispensing of long-acting reversible contraception (LARC) decreased during Covid-19, but has since returned to approximately pre-pandemic levels.
+
+```{r Figure1, fig.cap="Covid-19 restrictions changed the proportions of categories of contraception dispensed in Scotland. Prior to Covid-19, the combined oral contraceptive pill (COCP), containing both osetrogens and progesterones was the most dispensed form of contraception. However, during the Covid-19 pandemic, this changed to the progesterone-only pill (POP), with dispensing of the contraceptive patch also increasing. Dispensing rates of long-acting reversible contraception (LARC) including the IUS, IUD, injection and implant decreased during Covid-19, whilst the contraceptive ring remained relatively stable.", fig.height=4}
+Figure1 <- CompleteDataset %>% 
+  filter(!Type == "EC") %>% 
+  group_by(Period2, Type) %>% 
+  reframe(Sum = sum(MonthsContraception)/Months) %>% 
+  ggplot(aes(x = fct_reorder(Type, -Sum), y = Sum, fill = Period2)) +
+  geom_bar(width = 0.5, position = position_dodge(width = 0.8),
+           stat = "identity", colour = "black") +
+  theme_elliot() +
+  scale_fill_manual(values = c("grey80", "grey60", "grey40", "grey20"), 
+            labels = c("Pre-Covid", "Active Lockdown", "Peri-Covid", "Post-Covid")) +
+  labs(x = "Type", y = "Months of contraception \n dispensed per month") +
+  scale_y_continuous(labels = scales::comma)
+Figure1
+```
+
+
+Periods of active lockdown resulted in large decreases in all forms of contraception being dispensed in Scotland (Table 3).
+
+```{r}
+CompareTimesTypes <- function(type) {
+  Lockdown <- CompleteDataset %>% 
+  filter(Lockdown == "Y",
+         Type == glue("{type}")) %>% 
+  reframe(Sum = sum(MonthsContraception)/Months) %>% 
+  unique()
+  PostLockdown <- CompleteDataset %>% 
+  filter(Lockdown == "N",
+         Period == "3",
+         Type == glue("{type}")) %>% 
+  reframe(Sum = sum(MonthsContraception)/Months) %>% 
+  unique()
+    PreLockdown <- CompleteDataset %>% 
+  filter(Lockdown == "N",
+         Period == "1",
+         Type == glue("{type}")) %>% 
+  reframe(Sum = sum(MonthsContraception)/Months) %>% 
+  unique()
+       PeriLockdown <- CompleteDataset %>% 
+  filter(Lockdown == "N",
+         Period == "2",
+         Type == glue("{type}")) %>% 
+  reframe(Sum = sum(MonthsContraception)/Months) %>% 
+  unique()
+       
+return(unlist(c(Lockdown/PreLockdown, PeriLockdown/PreLockdown, PostLockdown/PreLockdown)))
+}
+```
+
+```{r}
+CompareTimesECTypes <- function(ECtype) {
+  Lockdown <- CompleteDataset %>% 
+  filter(Lockdown == "Y",
+         ECType == glue("{ECtype}")) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months) %>% 
+  unique()
+  PostLockdown <- CompleteDataset %>% 
+  filter(Lockdown == "N",
+         Period == "3",
+         ECType == glue("{ECtype}")) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months) %>% 
+  unique()
+    PreLockdown <- CompleteDataset %>% 
+  filter(Lockdown == "N",
+         Period == "1",
+         ECType == glue("{ECtype}")) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months) %>% 
+  unique()
+       PeriLockdown <- CompleteDataset %>% 
+  filter(Lockdown == "N",
+         Period == "2",
+         ECType == glue("{ECtype}")) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months) %>% 
+  unique()
+       
+return(unlist(c(Lockdown/PreLockdown, PeriLockdown/PreLockdown, PostLockdown/PreLockdown)))
+}
+```
+
+```{r}
+CompareTimesEC <- function(group) {
+  Lockdown <- CompleteDataset %>% 
+  filter(Lockdown == "Y",
+         Group == glue("{group}")) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months) %>% 
+  unique()
+  PostLockdown <- CompleteDataset %>% 
+  filter(Lockdown == "N",
+         Period == "3",
+         Group == glue("{group}")) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months) %>% 
+  unique()
+    PreLockdown <- CompleteDataset %>% 
+  filter(Lockdown == "N",
+         Period == "1",
+         Group == glue("{group}")) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months) %>% 
+  unique()
+       PeriLockdown <- CompleteDataset %>% 
+  filter(Lockdown == "N",
+         Period == "2",
+         Group == glue("{group}")) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months) %>% 
+  unique()
+       
+return(unlist(c(Lockdown/PreLockdown, PeriLockdown/PreLockdown, PostLockdown/PreLockdown)))
+}
+```
+
+```{r Table3 Data}
+CompareTimes <- function(group) {
+  Lockdown <- CompleteDataset %>% 
+  filter(Lockdown == "Y",
+         Group == glue("{group}")) %>% 
+  reframe(Sum = sum(MonthsContraception)/Months) %>% 
+  unique()
+  PostLockdown <- CompleteDataset %>% 
+  filter(Lockdown == "N",
+         Period == "3",
+         Group == glue("{group}")) %>% 
+  reframe(Sum = sum(MonthsContraception)/Months) %>% 
+  unique()
+    PreLockdown <- CompleteDataset %>% 
+  filter(Lockdown == "N",
+         Period == "1",
+         Group == glue("{group}")) %>% 
+  reframe(Sum = sum(MonthsContraception)/Months) %>% 
+  unique()
+       PeriLockdown <- CompleteDataset %>% 
+  filter(Lockdown == "N",
+         Period == "2",
+         Group == glue("{group}")) %>% 
+  reframe(Sum = sum(MonthsContraception)/Months) %>% 
+  unique()
+       
+return(unlist(c(Lockdown/PreLockdown, PeriLockdown/PreLockdown, PostLockdown/PreLockdown)))
+}
+```
+
+```{r Table3}
+Table3 <- tibble("Timeframes" = c("Lockdown", "Peri-Lockdown", "Post-Lockdown"),
+"All LARC" = CompareTimes("LARC"),
+"IUS" = CompareTimesTypes("IUS"),
+"IUD" = CompareTimesTypes("IUD"),
+"Implant" = CompareTimesTypes("Implant"),
+"Injection" = CompareTimesTypes("Injection"),
+"All Oral" = CompareTimes("Oral"),
+"COCP" = CompareTimesTypes("COCP"),
+"POP" = CompareTimesTypes("POP"),
+"All Other" = CompareTimes("Other"),
+"Patch" = CompareTimesTypes("Patch"),
+"Ring" = CompareTimesTypes("Ring"),
+"All EC" = CompareTimesEC("EC"),
+"Uli" = CompareTimesECTypes("ULI"),
+"Levo" = CompareTimesECTypes("LEV")) %>% 
+  gt() %>%
+    fmt_percent(decimals = 2) %>% 
+  tab_spanner(label = "LARCs", columns = c("All LARC" : "Injection")) %>% 
+  tab_spanner(label = "Oral", columns = c("All Oral" : "POP")) %>%
+  tab_spanner(label = "Other", columns = c("All Other" : "Ring")) %>%
+  tab_spanner(label = "EC", columns = c("All EC" : "Levo")) %>%
+  tab_style(locations = cells_body(columns = c("All LARC", "All Other", "All Oral", "All EC")), style = list(cell_text(weight = "bold"), cell_fill(color = "grey80")))
+```
+
+```{r}
+Table3
+```
+
+## Oral contraception
+
+Oral contraceptives comprising of both COCP and POP were consistently the most prescribed form of contraception in Scotland, as measured by both months of contraceptive coverage dispensed per month, and the total number of items dispensed.
+
+```{r, eval=F}
+CompleteDataset %>% 
+  select(c("Group", "MonthsContraception")) %>% 
+  group_by(Group) %>% 
+  filter(Group == "Oral") %>% 
+  summarise(mean = sum(MonthsContraception)/TotalMonths)
+
+CompleteDataset %>% 
+  select(c("Group", "PaidQuantity")) %>% 
+  group_by(Group) %>% 
+  filter(Group == "Oral") %>% 
+  summarise(mean = sum(PaidQuantity)/TotalMonths)
+```
+
+
+```{r Months contraception dispensed by Type of contraception, eval=F}
+CompleteDataset %>% 
+  select(c("Group", "MonthsContraception")) %>% 
+  group_by(Group) %>% 
+  reframe(Sum = sum(MonthsContraception)/TotalMonths) %>% 
+  ggplot(aes(x = fct_reorder(Group, -Sum), y = Sum, fill = Group)) +
+  geom_bar(position = position_dodge(width = 0.9), 
+           stat = "identity", width = 0.7, colour = "black") +
+  theme_elliot() +
+  scale_fill_manual(values = c("grey80", "grey60", "grey40", "grey20")) +
+  scale_y_continuous(labels = scales::comma)
+```
+
+Prior to the Covid-19 pandemic, combined oral contraceptives were more frequently prescribed (mean percentage of total months of contraception dispensed per month 54.38%) than progesterone-only contraceptives (45.62%). However, during the period from April 2020 to April 2022, this trend was reversed (COCP: 43.84%, POP: 56.16%). Restrictions on face-to-face medical appointments during Covid-19 meant that the regular monitoring of BMI, and blood pressure were unable to take place. This likely lead to the decrease in COCP prescribing, and the growth in dispensing of POPs instead (Figure 2), which do not require the same patient monitoring.After this period, the trend has not restored to pre-Covid-19 levels, but in fact the dispensing of POP have increased (COCP: 41.70%, POP: 58.30%). Intriguingly, the differences in the proportion of COCP versus POP dispensed per month in Scotland have widened even after the lifting of Covid-19 associated restrictions (Figure 2).
+
+```{r Figure2, fig.cap="Testing"}
+PLOT_COCPvsPOP <- CompleteDataset %>%
+  filter(Type %in% c("COCP", "POP")) %>% 
+  group_by(PaidDateMonth, Type, Period2) %>% 
+  reframe(Sum = sum(MonthsContraception)) %>% 
+  ggplot(aes(y = Sum, x = Period2, fill = Type)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_point(position = position_jitterdodge(jitter.height = 0, jitter.width = 0.5), aes(group = Type, shape = Type), colour = "black") +
+  theme_elliot() +
+  labs(y = "Months of contraception dispensed per month",
+       x = "Period") +
+  scale_y_continuous(labels = scales::comma,
+                     breaks = seq(from = 100000, to = 200000, by = 20000)
+                     ) +
+  scale_shape_manual(values = c(21, 24), name = "Type", labels = c(
+      "Combined oral contraceptives",
+      "Progesterone-only oral contraceptives"
+    )) +
+  scale_x_discrete(labels = c("Pre-Covid", "Active Lockdown", "During Covid", "Post-Covid")) +
+  scale_fill_manual(name = "Type",
+    values = c("white", "grey"),
+    labels = c(
+      "Combined oral contraceptives",
+      "Progesterone-only oral contraceptives"
+    )
+  )
+Figure2 <- PLOT_COCPvsPOP
+Figure2
+```
+
+```{r Mean contraception dispensed per period, eval=F}
+CompleteDataset %>%
+  filter(Type %in% c("COCP", "POP")) %>% 
+  select(c(PaidDateMonth, Period, Type, MonthsContraception)) %>% 
+  group_by(PaidDateMonth, Type) %>% 
+  reframe(Sum = sum(MonthsContraception)) %>% 
+  mutate(Period = as.factor(
+      case_when(
+        PaidDateMonth < dmy("01/04/2020") ~ "1",
+        between(PaidDateMonth, dmy("01/04/2020"), dmy("01/04/2022")) ~ "2",
+        PaidDateMonth > dmy("01/04/2022") ~ "3"
+      ))) %>% 
+  group_by(Period, Type) %>% 
+  summarise(mean(Sum))
+```
+However, some of this variation may be due to a decline in the total months of contraceptive coverage dispensed. During Covid-19, a mean of 287,775 MCC were dispensed per month, a 7.45% reduction in MCC dispensed per month compared with pre-Covid-19 levels (310,952). This trend has abated post-Covid-19, but the level of MCC dispensed per month remains 2.14% below pre-Covid-19 levels (304,309).
+```{r Table 2, eval=F}
+Table2Data <- CompleteDataset %>%
+  filter(Type %in% c("COCP", "POP")) %>% 
+  select(c(PaidDateMonth, Period, Type, MonthsContraception, Months)) %>% 
+  group_by(Period) %>% 
+  reframe(Sum = sum(MonthsContraception)/Months) %>% 
+  mutate(Period = as.factor(
+      case_when(
+        PaidDateMonth < dmy("01/04/2020") ~ "1",
+        between(PaidDateMonth, dmy("01/04/2020"), dmy("01/04/2022")) ~ "2",
+        PaidDateMonth > dmy("01/04/2022") ~ "3"
+      ))) %>% 
+  group_by(Period) %>% 
+  summarise(mean(Sum))
+
+Table2 <- gt(Table2Data)
+Table2
+```
+
+```{r ANOVA, eval=F}
+Table2Data %>% 
+  mutate(Percentage = `mean(Sum)`/155476)
+
+aov_data_2 <- CompleteDataset %>%
+  filter(Type %in% c("COCP", "POP")) %>% 
+  select(c(PaidDateMonth, Period, Type, MonthsContraception)) %>% 
+  group_by(PaidDateMonth, Type) %>% 
+  reframe(Sum = sum(MonthsContraception)) %>% 
+  mutate(Period = as.factor(
+      case_when(
+        PaidDateMonth < dmy("01/04/2020") ~ "1",
+        between(PaidDateMonth, dmy("01/04/2020"), dmy("01/04/2022")) ~ "2",
+        PaidDateMonth > dmy("01/04/2022") ~ "3"
+      )))
+
+aov_data <- CompleteDataset %>%
+  filter(Type %in% c("COCP", "POP")) %>% 
+  select(c(PaidDateMonth, Period, Type, MonthsContraception)) %>% 
+  group_by(PaidDateMonth) %>% 
+  reframe(Sum = sum(MonthsContraception)) %>% 
+  mutate(Period = as.factor(
+      case_when(
+        PaidDateMonth < dmy("01/04/2020") ~ "1",
+        between(PaidDateMonth, dmy("01/04/2020"), dmy("01/04/2022")) ~ "2",
+        PaidDateMonth > dmy("01/04/2022") ~ "3"
+      )))
+
+a <- lm(Sum ~ Period*Type, data = aov_data_2)
+b <- lm(Sum ~ Period, data = aov_data)
+b_aov <- aov(b)
+shapiro.test(b$residuals)
+library(car)
+qqPlot(b)
+leveneTest(b)
+outlierTest(b)
+summary(b)
+TukeyHSD(b_aov)
+
+library(emmeans)
+b_emm <- emmeans(b, "Period", data = aov_data, scale = "response")
+pairs(b_emm)
+eff_size(b_emm, edf = df.residual(b), sigma = sigma(b))
+```
+
+
+## Long-acting reversible contraception
+
+Long-acting reversible contraception (LARC), generally requires administration by a healthcare professional, unlike oral contraception. Due to the aforementioned restrictions on face-to-face appointments, LARC administration was severely decreased throughout the Covid-19 pandemic (Figure 3).
+
+The decrease in injection dispensing throughout Covid-19 is less severe than other forms of LARC which cannot be self-administered. There was a change in dispensing type, with Depo-Provera (IM) decreasing to 75.64% of pre-pandemic levels during periods of lockdown, and Sayana Press (SC) increasing to 111.04%.
+
+```{r LARC_Boxplot function}
+LARC_Boxplot <- function(ContraceptionType) {
+  CompleteDataset %>% 
+  filter(Type == ContraceptionType) %>%
+  select(c(PaidDateMonth, Period, Type, MonthsContraception)) %>% 
+  group_by(PaidDateMonth) %>% 
+  reframe(Sum = sum(MonthsContraception)) %>% 
+  mutate(Period = as.factor(
+    case_when(
+      PaidDateMonth < dmy("01/04/2020") ~ "1",
+      between(PaidDateMonth, dmy("01/04/2020"), dmy("01/04/2022")) ~ "2",
+      PaidDateMonth > dmy("01/04/2022") ~ "3"
+      ))) %>% 
+  ggplot(aes(y = Sum, x = Period)) +
+  geom_boxplot(outlier.shape = , fill = "grey") +
+  theme_elliot()
+}
+```
+
+```{r LARC_LinePlot}
+LARC_LinePlot <- CompleteDataset %>% 
+  filter(!Type %in% c("COCP", "POP", "Patch", "Ring", "Jelly", "EC")) %>%
+  select(c(PaidDateMonth, Period, Type, MonthsContraception)) %>% 
+  group_by(PaidDateMonth, Type) %>% 
+  reframe(Sum = sum(MonthsContraception)) %>% 
+  ggplot(aes(y = Sum, x = PaidDateMonth, linetype = Type)) +
+  geom_line() +
+  theme_elliot() +
+  scale_y_continuous(labels = scales::comma,
+                     breaks = seq(from = 0, to = 800000, by = 10000)) +
+  labs(y = "Months of contraception dispensed per month", x = "Year") +
+  scale_linetype_manual(values = c(1, 2, 3, 5)) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  theme(panel.grid.minor.x = element_blank()) +
+  coord_cartesian(xlim = c(dmy("01/01/2016"), dmy("01/01/2023")), 
+                  ylim = c(0, 80000),
+                  clip = 'off')
+
+LARC_LinePlot <- LARC_LinePlot + annotate("rect", 
+    xmin = c(dmy("23/03/2020"), dmy("26/12/2020"),dmy("26/12/2021")),
+    xmax = c(dmy("19/07/2020"), dmy("16/04/2021"), dmy("21/03/2022")),
+    ymin = c(-4000, -4000, -4000), 
+    ymax = c(80000, 80000, 80000), 
+    alpha = .2)
+```
+
+```{r LARC Boxplots}
+IUD_Boxplot <- LARC_Boxplot("IUD")
+IUS_Boxplot <- LARC_Boxplot("IUS")
+Implant_Boxplot <- LARC_Boxplot("Implant")
+Injection_Boxplot <- LARC_Boxplot("Injection")
+```
+
+```{r, eval=F}
+CompareType <- "Implant"
+
+During <- CompleteDataset %>% 
+  filter(Type == CompareType, Lockdown == "Y") %>%
+  summarise(mean = mean(MonthsContraception))
+
+Pre <- CompleteDataset %>% 
+  filter(Type == CompareType, Lockdown == "N", Period == "1") %>%
+  summarise(mean = mean(MonthsContraception))
+
+During/Pre
+```
+
+```{r, eval=F}
+BNFDesc <- "DEPO"
+
+During <- CompleteDataset %>% 
+  filter(str_detect(BNFItemDescription, BNFDesc), Lockdown == "Y") %>%
+  summarise(mean = mean(MonthsContraception))
+
+Pre <- CompleteDataset %>% 
+  filter(str_detect(BNFItemDescription, BNFDesc), Lockdown == "N", Period == "1") %>%
+  summarise(mean = mean(MonthsContraception))
+
+During/Pre
+```
+
+
+```{r Figure3, fig.cap="Grey shaded areas indicate active lockdowns."}
+Figure3 <- LARC_LinePlot 
+# /
+#   (IUD_Boxplot + IUS_Boxplot + Implant_Boxplot + Injection_Boxplot) +
+#   plot_annotation(tag_levels = 'A')
+Figure3
+```
+
+## Emergency contraception
+
+Emergency contraception is available free-of-charge without a prescription from the majority of Scottish community pharmacies [@EHC2015]. Due to social restrictions present in Scotland, it was expected to see a decrease in emergency contraception dispensing (Figure 4).
+```{r ECTotalPlot}
+ECTotalPlot <- CompleteDataset %>% 
+  filter(Type == "EC") %>% 
+  group_by(Period2) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months) %>% 
+  unique() %>% 
+  ggplot(aes(x = Period2, y = Sum)) +
+  geom_col(colour = "black", fill = "grey60") +
+  labs(y = "EC Prescriptions Paid Quantity \n Dispensed per Month") +
+  theme_elliot() +
+  scale_y_continuous(labels = scales::comma, breaks = seq(0, 10000, by = 1000)) +
+   scale_x_discrete(labels = c("Pre-Covid", "Active Lockdown", "Peri-Covid", "Post-Covid"))
+```
+
+
+```{r ECTypePlot}
+ECTypePlot <- CompleteDataset %>% 
+  filter(Type == "EC") %>% 
+  group_by(Period2, ECType) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months) %>% 
+  unique() %>% 
+  group_by(Period2) %>%
+  mutate(Total = sum(Sum)) %>%
+  ggplot(aes(x = Period2, y = Sum, fill = ECType, group = ECType)) +
+   geom_col(position = position_dodge(width = 0.9),
+           width = 0.8,
+     colour = "black") +
+
+  labs(y = "EC Prescriptions Paid Quantity \n Dispensed per Month", fill = "") +
+  theme_elliot() +
+  scale_fill_manual(values = c("grey80", "grey40"), labels = c("Levonorgestrel", "Ulipristal acetate")) +
+  scale_y_continuous(labels = scales::comma, breaks = seq(0, 10000, by = 1000)) +
+  scale_x_discrete(labels = c("Pre-Covid", "Active Lockdown", "Peri-Covid", "Post-Covid"))
+```
+
+```{r}
+CompleteDataset %>% 
+  filter(Type == "EC") %>% 
+  group_by(Period2, ECType) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months) %>% 
+  unique() %>% 
+  group_by(Period2) %>% 
+  pivot_wider(names_from = ECType, values_from = Sum) %>% 
+  mutate(TOT = sum(LEV + ULI)) %>% 
+  pivot_longer(cols = LEV:TOT, names_to = "Type", values_to = "Sum") %>%
+  mutate(Type = factor(Type, levels = c("LEV", "ULI", "TOT"))) %>% 
+  ggplot(aes(x = Period2, y = Sum, fill = Type, group = Type)) +
+  geom_col(position = position_dodge(width = 0.9),
+           width = 0.8,
+     colour = "black") +
+    labs(x = "Period", y = "EC Prescriptions Paid Quantity \n Dispensed per Month", fill = "") +
+  theme_elliot() +
+  scale_fill_manual(values = c("grey80", "grey60", "grey40"), labels = c("Levonorgestrel", "Ulipristal acetate", "Total")) +
+  scale_y_continuous(labels = scales::comma, breaks = seq(0, 10000, by = 1000)) +
+  scale_x_discrete(labels = c("Pre-Covid", "Active Lockdown", "Peri-Covid", "Post-Covid"))
+
+```
+
+
+
+```{r}
+ CompleteDataset %>% 
+  filter(Type == "EC") %>% 
+  group_by(Period2) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months, ECType = ECType) %>% 
+  unique() %>% 
+  mutate(Total = sum(Sum)) %>% 
+   +
+  labs(y = "EC Prescriptions Paid Quantity \n Dispensed per Month") +
+  theme_elliot() +
+  scale_y_continuous(labels = scales::comma, breaks = seq(0, 10000, by = 1000)) +
+   scale_x_discrete(labels = c("Pre-Covid", "Active Lockdown", "Peri-Covid", "Post-Covid"))
+```
+
+```{r}
+CompleteDataset %>% 
+  group_by(Period2) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months) %>% 
+  unique() %>% 
+  ggplot(aes(x = Period2, y = Sum)) +
+  geom_col()
+```
+
+```{r}
+CompleteDataset %>% 
+  group_by(Period2) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months) %>% 
+  unique() %>% 
+  mutate(Percentage = 100*(Sum/6563367))
+```
+
+
+```{r}
+CompleteDataset %>% 
+  filter(Type == "EC") %>% 
+  group_by(Period2, ECType) %>% 
+  reframe(Sum = sum(PaidQuantity)/Months) %>% 
+  unique() %>% 
+  group_by(Period2) %>%
+  mutate(Total = sum(Sum)) %>% 
+  ggplot(aes(x = Period2, y = Total)) +
+  geom_col(aes(x = Period2, y = Sum, fill = ECType, group = ECType), position = position_dodge(width = 0.9), 
+           width = 0.8, colour = "black") +
+   geom_col(aes(x = Period2, y = Total), position = position_dodge(width = 0.9), 
+           width = 0.25, colour = "black")
+```
+
+
+```{r ECMonthlyLinePlot}
+ECMonthlyLinePlot <- CompleteDataset %>% 
+  filter(Type == "EC") %>% 
+  group_by(PaidDateMonth) %>% 
+  reframe(Sum = sum(PaidQuantity)) %>% 
+  unique() %>% 
+  ggplot(aes(x = PaidDateMonth, y = Sum)) +
+  geom_line(colour = "black", linewidth = 0.5, aes(linetype = "Combo")) +
+  geom_line(data = CompleteDataset %>% filter(Type %in% c("EC")) %>%
+              group_by(PaidDateMonth, ECType) %>% 
+              reframe(Sum = sum(PaidQuantity)) %>% unique(), aes(group = ECType, linetype = ECType), linewidth = 0.5) +
+  scale_linetype_manual(values = c(1, 2, 9), labels = c("All Emergency Contraception", "Levonorgestrel", "Ulipristal acetate")) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  scale_y_continuous(breaks = seq(0, 10000, by = 1000), labels = scales::comma) +
+  theme_elliot() +
+  annotate("rect", 
+    xmin = c(dmy("23/03/2020"), dmy("26/12/2020"),dmy("26/12/2021")),
+    xmax = c(dmy("19/07/2020"), dmy("16/04/2021"), dmy("21/03/2022")),
+    ymin = c(0, 0, 0), 
+    ymax = c(10000, 10000, 10000), 
+    alpha = .2) +
+  labs(y = "EC Prescriptions Paid Quantity \n Dispensed per Month", x = "Year", linetype = "")
+```
+
+```{r Figure4, fig.height=8, fig.width=8, fig.cap="Emergency contraception"}
+Figure4 <- (ECTotalPlot + ECTypePlot) / ECMonthlyLinePlot +
+  patchwork::plot_annotation(tag_levels = "A")
+Figure4
+```
+
+# Discussion
+
+The clear decreases in all forms of prescribed contraceptive provision in Scotland during Covid-19 presents a myriad of possible outcomes ranging from unwanted pregnancies to
+
+Telemedicine terminations, easier to access and potentially increased due to this lack of effective contraceptive provision for Scottish women.
+
+FRSH 
+
+The effects of these restrictions appear to have altered trends in contraceptive prescribing within Scottish general practice. For example, the increasing role of progeterone-only oral contraception are clerarly visible. This is also supported by access to POPs within community pharmacies in Scotland. 
+
+## Limitations
+
+Assumption that any changes observed between 2016 etc are due to lockdown and other restrictions, not due to other unknown factors.
+
+A further assumption is made that the patient population seeking contraception from general practioners is constant throughout the period of this study, and consequently, variances in prescribing rates between pre and post covid are due to changes in contraceptive prescribing rather than population level alterations.
+
+Finally, it also assumed that the drugs dispesed here are used purely for their licenced indication of contraception, not any alternative eg HRT or off-label uses.
+
+Only data from Scotland were included in this study. Future work may explore if these impacts were similar in the other nations of the UK, or whether the devolved nature of healthcare policy within the UK created disparities in access to contracpetion during Covid-19 restrictions.
+
+
+# Conclusions
+
+
+# Reference List
+
+::: {#refs}
+:::
+
+# Supporting information

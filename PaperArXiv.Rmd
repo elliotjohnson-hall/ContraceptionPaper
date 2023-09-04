@@ -1,0 +1,47 @@
+---
+title: "Changes in contraceptive prescribing in Scotland due to the COVID-19 pandemic: a retrospective analysis of Scottish general practice prescribing data between 2015 and 2023"
+authors:
+  - name: Elliot O. Johnson-Hall
+    department: Deanery of Biomedical Sciences
+    affiliation: University of Edinburgh
+    location: Edinburgh, United Kingdom
+    email: elliotjh2@gmail.com
+abstract: |
+  Enter the text of your abstract here.
+keywords:
+  - blah
+  - blee
+  - bloo
+  - these are optional and can be removed
+bibliography: references.bib
+biblio-style: unsrt
+output: rticles::arxiv_article
+---
+
+# Introduction
+@Walker2022 revealed changes in prescribing of contraception between 2019 and 2020 due to the SARS-CoV-2 pandemic, and associated restrictions. Herein, we will examine if this is the case in Scotland as well. This study examines changes in contraception prescribed by general practices in Scotland from October 2015 to January 2023.
+
+# Methods
+R v4.3.0 was used to create a script to access data from the NHS Scotland Open Data API. These data were filtered by BNF code to extract only contraceptive medicines. 
+
+## Patient and public involvement
+There was no public or patient involvement in this study.
+
+# Results
+
+## Limitations
+
+# Conclusions
+
+# Abbreviations
+- **EC:** Emergency contraception
+- **LARC:** Long-acting reversible contraception
+- **OC:** Oral contraception
+
+# Availability of data and code
+Data are freely available from NHS Scotland Open Data repository at [https://www.opendata.nhs.scot/dataset/prescriptions-in-the-community]. The full code used for analysis here is available in the supplementary material, and also on GitHub at.
+
+# Author contributions
+EJH is the sole author and was responsible for all analysis and manuscript preparation.
+
+# References

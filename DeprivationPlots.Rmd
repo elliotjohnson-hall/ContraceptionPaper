@@ -1,0 +1,52 @@
+\newpage
+```{r ZoomedPlots, eval=FALSE, include=FALSE}
+ZoomedPlots
+```
+\newpage
+```{r DeprivationPlotting}
+TabletDeprivationPlot <-
+SIMDPlot(SIMDContraceptionLookup(Tablet, 20)) +
+labs(title = "1&20 Tab") +
+scale_y_continuous(
+labels = label_percent(),
+sec.axis = sec_axis( ~ . / 100, labels = label_percent(), name = derive())
+) +
+geom_line(
+data = SIMDContraceptionLookup(EmergencyContraception, 20),
+mapping = aes(y = ContraceptionPerHeadPerMonthPerHealthBoard * 100),
+colour = "red"
+)
+
+LARCDeprivationPlot <- SIMDPlot(SIMDContraceptionLookup(LARC, 1)) +
+labs(title = "1&20 LARC") +
+scale_y_continuous(labels = label_percent()) +
+geom_line(data = SIMDContraceptionLookup(EmergencyContraception, 20),
+colour = "red")
+
+EmergencyContraceptionDeprivationPlot <-
+SIMDPlot(SIMDContraceptionLookup(EmergencyContraception, 1)) +
+labs(title = "1&20 EC") +
+scale_y_continuous(labels = label_percent()) +
+geom_line(data = SIMDContraceptionLookup(EmergencyContraception, 20),
+colour = "red")
+
+DeprivationPlots <-
+wrap_plots(
+TabletDeprivationPlot / LARCDeprivationPlot,
+EmergencyContraceptionDeprivationPlot
+) +
+plot_annotation(
+caption = 'N.B. Scales on Plot A are different by a factor of 100! Yellow shaded areas indicate national lockdowns in Scotland. Green shaded areas indicate the month after the preceding lockdowns were lifted.',
+tag_levels = 'A',
+title = "Change in Prescribing Rates of Different Types of Contraception in Scotland over Covid-19 Lockdowns",
+theme = theme(
+plot.title = element_text(hjust = 0.5, face = "bold", size = 18),
+plot.margin = margin(5, 5, 5, 5)
+)
+)
+#1 = most deprived, 20 = least
+```
+\newpage
+```{r DeprivationPlots}
+DeprivationPlots
+```
