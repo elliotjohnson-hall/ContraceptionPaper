@@ -25,7 +25,8 @@ pacman::p_load(
   "patchwork",
   "gt",
   "vroom",
-  "ckanr"
+  "ckanr",
+  "ggpattern"
 )
 
 #ggplot2 Theme
@@ -131,7 +132,7 @@ if (file.exists(here("Data", "Data.RDS"))) {
 #   }
 # }
 #
-#Write Dataset TO DISK Function
+# #Write Dataset TO DISK Function
 # WriteOut <- function(Dataframe) {
 #   if (dir.exists(here("Data")) == TRUE) {
 #     unlink(here("Data"), recursive = TRUE)
@@ -311,29 +312,48 @@ CompleteDataset$Period2 <-
 #############################################################################
 
 #Figure1
-Figure1 <- CompleteDataset %>%
+Figure1Data <- CompleteDataset %>%
   filter(!Type == "EC") %>%
   group_by(Period2, Type) %>%
   reframe(Sum = sum(MonthsContraception) / Months) %>%
+  unique()
+  # slice_sample(prop = 0.001) %>%
+Figure1 <- Figure1Data %>%
   ggplot(aes(
-    x = fct_reorder(Type,-Sum),
+    x = fct_reorder(Type,Sum),
     y = Sum,
-    fill = Period2
+    fill = Period2,
+    pattern = Period2,
+    pattern_angle = Period2
   )) +
-  geom_bar(
+  geom_bar_pattern(
     width = 0.5,
     position = position_dodge(width = 0.8),
     stat = "identity",
-    colour = "black"
-  ) +
+    colour = "black",
+    pattern_fill = "black",
+    pattern_spacing = 0.01,
+    pattern_alpha = 0.5) +
   theme_base() +
   scale_fill_manual(
-    values = c("grey80", "grey60", "grey40", "grey20"),
+    #values = c("grey80", "grey60", "grey40", "grey20"), #MONO
+    values = c("#d9f0a3",
+                "#addd8e",
+                "#78c679",
+                "#005a32"),
     labels = c("Pre-COVID-19", "Lockdown", "Restrictions", "Post-COVID-19"),
     name = "Period"
   ) +
   labs(x = "Type", y = "Months of contraception \n dispensed per month") +
-  scale_y_continuous(labels = scales::comma)
+  scale_y_continuous(labels = scales::comma) +
+  scale_pattern_manual(values = c("stripe", "circle", "stripe", "none"), guide = "none") +
+  scale_pattern_angle_manual(values = c(45, 0, -45, 0), guide = "none") +
+  guides(fill = guide_legend(override.aes = list(pattern = c("stripe", "circle", "stripe", "none")))) +
+  coord_flip() +
+  theme(panel.grid.major.x = element_line(),
+        panel.grid.minor.x = element_line(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank())
 Figure1
 
 #Figure2
@@ -341,16 +361,22 @@ PLOT_COCPvsPOP <- CompleteDataset %>%
   filter(Type %in% c("COCP", "POP")) %>%
   group_by(PaidDateMonth, Type, Period2) %>%
   reframe(Sum = sum(MonthsContraception)) %>%
-  ggplot(aes(y = Sum, x = Period2, fill = Type)) +
-  geom_violin(width = 1.5) +
-  geom_boxplot(width=0.1, position = "identity")
+  mutate(Period2 = fct_relevel(Period2, "3", "2", "4", "1")) %>%
+  ggplot(aes(y = Sum, x = Period2, fill = Type, pattern = Type)) +
+  geom_violin_pattern(colour = "black",
+                      pattern_fill = "black",
+                      pattern_angle = 45,
+                      pattern_density = 0.05,
+                      pattern_spacing = 0.025,
+                      pattern_alpha = 0.5
+                      ) +
+  geom_boxplot(width=0.1, position = position_dodge(width = 0.9), show.legend = F, aes(colour = Type), outlier.colour = "black") +
   # geom_boxplot(outlier.shape = NA) +
   # geom_point(
   #   position = position_jitterdodge(jitter.height = 0, jitter.width = 0.5),
   #   aes(group = Type, shape = Type),
   #   colour = "black"
   # ) +
-
   theme_base() +
   labs(y = "Months of contraception dispensed per month",
        x = "Period") +
@@ -364,15 +390,26 @@ PLOT_COCPvsPOP <- CompleteDataset %>%
       "Progesterone-only oral contraceptives"
     )
   ) +
-  scale_x_discrete(labels = c("Pre-COVID-19", "Lockdown", "Restrictions", "Post-COVID-19")) +
+  scale_x_discrete(
+    labels = rev(c("Pre-COVID-19", "Lockdown", "Restrictions", "Post-COVID-19"))
+    ) +
   scale_fill_manual(
     name = "Type",
-    values = c("white", "grey"),
+    #values = c("white", "grey"), #MONO
+    values = c("#ffd700", "#0000ff"), #COLOUR
     labels = c(
       "Combined oral contraceptives",
       "Progesterone-only oral contraceptives"
-    )
-  )
+    )) +
+  scale_colour_manual(values = c("black", "white")) + #ON FOR COLOUR
+  scale_pattern_manual(values = c("stripe", "none"), guide = "none") +
+  guides(fill = guide_legend(override.aes = list(pattern = c("stripe", "none")))) +
+  coord_flip() +
+  theme(panel.grid.major.x = element_line(),
+        panel.grid.minor.x = element_line(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank())
+
 Figure2 <- PLOT_COCPvsPOP
 Figure2
 
@@ -382,29 +419,100 @@ LARC_LinePlot <- CompleteDataset %>%
   select(c(PaidDateMonth, Period, Type, MonthsContraception)) %>%
   group_by(PaidDateMonth, Type) %>%
   reframe(Sum = sum(MonthsContraception)) %>%
-  ggplot(aes(y = Sum, x = PaidDateMonth, linetype = Type)) +
-  geom_line() +
+  ggplot(aes(y = Sum, x = PaidDateMonth, linetype = Type, colour = Type)) +
+  annotate("rect",
+           xmin = c(
+            dmy("01/01/2016"),
+            dmy("24/03/2020"),
+            dmy("30/05/2020"),
+            dmy("05/01/2021"),
+            dmy("27/04/2021"),
+            dmy("01/04/2022")),
+           xmax = c(
+            dmy("23/03/2020"),
+            dmy("30/05/2020"),
+            dmy("05/01/2021"),
+            dmy("27/04/2021"),
+            dmy("31/03/2022"),
+            dmy("01/01/2023")),
+           ymin = rep(-4000, times = 6),
+           ymax = rep(0, times = 6),
+           alpha = 0.25,
+           fill = c("#33BBEE", "#CC3311", "#EE7733",
+                    "#CC3311", "#EE7733", "#33BBEE")
+  ) +
+  annotate("text",
+           y = rep(-2000, times = 6),
+           x = c(dmy("10/02/2018"),
+                 dmy("26/04/2020"),
+                 dmy("17/09/2020"),
+                 dmy("01/03/2021"),
+                 dmy("12/10/2021"),
+                 dmy("16/08/2022")),
+           label = c("Pre-COVID-19",
+                     "L",
+                     "R",
+                     "L",
+                     "R",
+                     "Post-COVID-19")) +
+  geom_line(linewidth = 1) +
   theme_base() +
   scale_y_continuous(labels = scales::comma,
                      breaks = seq(from = 0, to = 800000, by = 10000)) +
   labs(y = "Months of contraception dispensed per month", x = "Year") +
   scale_linetype_manual(values = c(1, 2, 3, 5)) +
+  scale_colour_manual(values = c("black", "#e59c00", "#56b2dd", "#009e73")) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
   theme(panel.grid.minor.x = element_blank()) +
   coord_cartesian(xlim = c(dmy("01/01/2016"), dmy("01/01/2023")),
                   ylim = c(0, 80000),
                   clip = 'off')
 
-LARC_LinePlot <- LARC_LinePlot + annotate(
-  "rect",
-  xmin = c(dmy("24/03/2020"), dmy("05/01/2021")),
-  xmax = c(dmy("29/05/2020"), dmy("26/04/2021")),
-  ymin = c(-4000,-4000),
-  ymax = c(80000, 80000),
-  alpha = .2
-)
+# LARC_LinePlot <- LARC_LinePlot + annotate(
+#   "rect",
+#   xmin = c(dmy("24/03/2020"), dmy("05/01/2021")),
+#   xmax = c(dmy("29/05/2020"), dmy("26/04/2021")),
+#   ymin = c(-4000,-4000),
+#   ymax = c(80000, 80000),
+#   alpha = .2
+# ) +
+# annotate("rect",
+#   xmin = c(dmy("01/01/2016"), dmy("24/03/2020"),
+#            dmy("30/05/2020"), dmy("05/01/2021"),
+#            dmy("27/04/2021"), dmy("01/04/2022")),
+#   xmax = c(dmy("23/03/2020"), dmy("29/05/2020"),
+#            dmy("26/04/2021"), dmy("31/03/2022"),
+#            dmy("04/01/2021"), dmy("01/01/2023")),
+#   ymin = rep(-4000, times = 6),
+#   ymax = rep(c(0, 80000, 0), times = 2),
+#   alpha = 0.1,
+#   fill = c("#33BBEE", "#CC3311", "#EE7733", "#CC3311", "#EE7733", "#33BBEE")
+#   )
+
+# CompleteDataset %>%
+#   filter(!Type %in% c("COCP", "POP", "Patch", "Ring", "Jelly", "EC")) %>%
+#   select(c(PaidDateMonth,Period2, Type, MonthsContraception)) %>%
+#   group_by(PaidDateMonth, Period2, Type) %>%
+#   reframe(Sum = sum(MonthsContraception)) %>%
+#   ggplot(aes(y = Sum, x = Period2)) +
+#   geom_violin_pattern(colour = "black",
+#                       aes(fill = Type),
+#                       pattern_fill = "black",
+#                       pattern_angle = 45,
+#                       pattern_density = 0.05,
+#                       pattern_spacing = 0.025,
+#                       pattern_alpha = 0.5
+#   ) +
+#   geom_boxplot(width=0.08, position = position_dodge(width = 0.9), show.legend = F, aes(fill = Type), outlier.colour = "black") +
+#   theme_base() +
+#   scale_y_continuous(labels = scales::comma,
+#                      breaks = seq(from = 0, to = 800000, by = 10000)) +
+#   labs(y = "Months of contraception dispensed per month", x = "Year") +
+#   facet_wrap(~Type)
+
 Figure3 <- LARC_LinePlot
 Figure3
+
 
 #Figure4
 Figure4 <- CompleteDataset %>%
@@ -418,27 +526,42 @@ Figure4 <- CompleteDataset %>%
   pivot_longer(cols = LEV:TOT,
                names_to = "Type",
                values_to = "Sum") %>%
-  mutate(Type = factor(Type, levels = c("LEV", "ULI", "TOT"))) %>%
+  mutate(Type = factor(Type, levels = c("TOT", "LEV", "ULI"))) %>%
+  mutate(Period2 = fct_relevel(Period2, "3", "2", "4", "1")) %>%
   ggplot(aes(
     x = Period2,
     y = Sum,
     fill = Type,
-    group = Type
+    group = Type,
+    pattern = Type
   )) +
-  geom_col(
+  geom_col_pattern(
     position = position_dodge(width = 0.9),
     width = 0.8,
-    colour = "black"
+    colour = "black",
+    pattern_fill = "black",
+    pattern_spacing = 0.01,
+    pattern_alpha = 0.5
   ) +
   labs(x = "Period", y = "EC Prescriptions Paid Quantity \n Dispensed per Month", fill = "") +
   theme_base() +
   scale_fill_manual(
-    values = c("grey80", "grey60", "grey40"),
-    labels = c("Levonorgestrel", "Ulipristal acetate", "Total")
+    #values = c("grey80", "grey60", "grey40"), #MONO
+    values = c("#d65c00", "#0071b2", "black"),
+    labels = c("Levonorgestrel", "Ulipristal acetate", "Total"),
+    breaks = c("LEV", "ULI", "TOT")
   ) +
+  scale_pattern_manual(values = c("none", "circle", "stripe"), guide = "none") +
+  scale_pattern_angle_manual(values = c(45, 0, -45, 0), guide = "none") +
+  guides(fill = guide_legend(override.aes = list(pattern = c("none", "circle", "stripe")))) +
   scale_y_continuous(labels = scales::comma,
                      breaks = seq(0, 10000, by = 1000)) +
-  scale_x_discrete(labels = c("Pre-COVID-19", "Lockdown", "Restrictions", "Post-COVID-19"))
+  scale_x_discrete(labels = rev(c("Pre-COVID-19", "Lockdown", "Restrictions", "Post-COVID-19"))) +
+  coord_flip() +
+  theme(panel.grid.major.x = element_line(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank())
 
 Figure4
 
