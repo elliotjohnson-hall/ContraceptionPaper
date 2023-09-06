@@ -6,4 +6,5 @@ Previous
 Data/
 *.csv
 *.RDS
+Ignore/
 .DS_Store

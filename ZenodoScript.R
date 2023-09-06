@@ -224,8 +224,8 @@ CompleteDataset <- CompleteDataset %>%
     Period = as.factor(
       case_when(
         PaidDateMonth < dmy("01/04/2020") ~ "1",
-        between(PaidDateMonth, dmy("01/04/2020"), dmy("01/04/2022")) ~ "2",
-        PaidDateMonth > dmy("01/04/2022") ~ "3"
+        between(PaidDateMonth, dmy("01/04/2020"), dmy("30/04/2022")) ~ "2",
+        PaidDateMonth > dmy("30/04/2022") ~ "3"
       )
     ),
     TotalMonths = case_when(Period == 1 ~ 31119114,
@@ -292,11 +292,11 @@ CompleteDataset <- CompleteDataset %>%
     Period2 = factor(
       case_when(
         PaidDateMonth < dmy("01/04/2020") & Lockdown == "N" ~ "1",
-        between(PaidDateMonth, dmy("01/04/2020"), dmy("01/04/2022")) &
+        between(PaidDateMonth, dmy("01/04/2020"), dmy("30/04/2022")) &
           Lockdown == "N" ~ "2",
-        between(PaidDateMonth, dmy("01/04/2020"), dmy("01/04/2022")) &
+        between(PaidDateMonth, dmy("01/04/2020"), dmy("30/04/2022")) &
           Lockdown == "Y" ~ "4",
-        PaidDateMonth > dmy("01/04/2022") & Lockdown == "N" ~ "3"
+        PaidDateMonth > dmy("30/04/2022") & Lockdown == "N" ~ "3"
       )
     )
   )
@@ -317,7 +317,7 @@ Figure1Data <- CompleteDataset %>%
   group_by(Period2, Type) %>%
   reframe(Sum = sum(MonthsContraception) / Months) %>%
   unique()
-  # slice_sample(prop = 0.001) %>%
+# slice_sample(prop = 0.001) %>%
 Figure1 <- Figure1Data %>%
   ggplot(aes(
     x = fct_reorder(Type,Sum),
@@ -338,9 +338,9 @@ Figure1 <- Figure1Data %>%
   scale_fill_manual(
     #values = c("grey80", "grey60", "grey40", "grey20"), #MONO
     values = c("#d9f0a3",
-                "#addd8e",
-                "#78c679",
-                "#005a32"),
+               "#addd8e",
+               "#78c679",
+               "#005a32"),
     labels = c("Pre-COVID-19", "Lockdown", "Restrictions", "Post-COVID-19"),
     name = "Period"
   ) +
@@ -369,7 +369,7 @@ PLOT_COCPvsPOP <- CompleteDataset %>%
                       pattern_density = 0.05,
                       pattern_spacing = 0.025,
                       pattern_alpha = 0.5
-                      ) +
+  ) +
   geom_boxplot(width=0.1, position = position_dodge(width = 0.9), show.legend = F, aes(colour = Type), outlier.colour = "black") +
   # geom_boxplot(outlier.shape = NA) +
   # geom_point(
@@ -392,7 +392,7 @@ PLOT_COCPvsPOP <- CompleteDataset %>%
   ) +
   scale_x_discrete(
     labels = rev(c("Pre-COVID-19", "Lockdown", "Restrictions", "Post-COVID-19"))
-    ) +
+  ) +
   scale_fill_manual(
     name = "Type",
     #values = c("white", "grey"), #MONO
@@ -422,19 +422,19 @@ LARC_LinePlot <- CompleteDataset %>%
   ggplot(aes(y = Sum, x = PaidDateMonth, linetype = Type, colour = Type)) +
   annotate("rect",
            xmin = c(
-            dmy("01/01/2016"),
-            dmy("24/03/2020"),
-            dmy("30/05/2020"),
-            dmy("05/01/2021"),
-            dmy("27/04/2021"),
-            dmy("01/04/2022")),
+             dmy("01/01/2016"),
+             dmy("24/03/2020"),
+             dmy("30/05/2020"),
+             dmy("05/01/2021"),
+             dmy("27/04/2021"),
+             dmy("01/05/2022")),
            xmax = c(
-            dmy("23/03/2020"),
-            dmy("30/05/2020"),
-            dmy("05/01/2021"),
-            dmy("27/04/2021"),
-            dmy("31/03/2022"),
-            dmy("01/01/2023")),
+             dmy("23/03/2020"),
+             dmy("30/05/2020"),
+             dmy("05/01/2021"),
+             dmy("27/04/2021"),
+             dmy("30/04/2022"),
+             dmy("01/01/2023")),
            ymin = rep(-4000, times = 6),
            ymax = rep(0, times = 6),
            alpha = 0.25,
@@ -479,9 +479,9 @@ LARC_LinePlot <- CompleteDataset %>%
 # annotate("rect",
 #   xmin = c(dmy("01/01/2016"), dmy("24/03/2020"),
 #            dmy("30/05/2020"), dmy("05/01/2021"),
-#            dmy("27/04/2021"), dmy("01/04/2022")),
+#            dmy("27/04/2021"), dmy("01/05/2022")),
 #   xmax = c(dmy("23/03/2020"), dmy("29/05/2020"),
-#            dmy("26/04/2021"), dmy("31/03/2022"),
+#            dmy("26/04/2021"), dmy("30/04/2022"),
 #            dmy("04/01/2021"), dmy("01/01/2023")),
 #   ymin = rep(-4000, times = 6),
 #   ymax = rep(c(0, 80000, 0), times = 2),
@@ -547,7 +547,7 @@ Figure4 <- CompleteDataset %>%
   theme_base() +
   scale_fill_manual(
     #values = c("grey80", "grey60", "grey40"), #MONO
-    values = c("#d65c00", "#0071b2", "black"),
+    values = c("purple", "orange", "black"),
     labels = c("Levonorgestrel", "Ulipristal acetate", "Total"),
     breaks = c("LEV", "ULI", "TOT")
   ) +
@@ -788,15 +788,15 @@ CompleteDataset %>%
   mutate(Period = as.factor(
     case_when(
       PaidDateMonth < dmy("01/04/2020") ~ "1",
-      between(PaidDateMonth, dmy("01/04/2020"), dmy("01/04/2022")) ~ "2",
-      PaidDateMonth > dmy("01/04/2022") ~ "3"
+      between(PaidDateMonth, dmy("01/04/2020"), dmy("30/04/2022")) ~ "2",
+      PaidDateMonth > dmy("30/04/2022") ~ "3"
     )
   )) %>%
   group_by(Period, Type) %>%
   summarise(mean(Sum))
 
 
-CompareType <- "Implant"
+CompareType <- "Injection"
 
 During <- CompleteDataset %>%
   filter(Type == CompareType, Lockdown == "Y") %>%
@@ -814,15 +814,76 @@ BNFDesc <- "DEPO"
 
 During <- CompleteDataset %>%
   filter(str_detect(BNFItemDescription, BNFDesc), Lockdown == "Y") %>%
-  summarise(mean = mean(MonthsContraception))
+  summarise(sum = sum(MonthsContraception) / Months)
 
 Pre <- CompleteDataset %>%
   filter(str_detect(BNFItemDescription, BNFDesc),
          Lockdown == "N",
          Period == "1") %>%
-  summarise(mean = mean(MonthsContraception))
+  summarise(sum = sum(MonthsContraception) / Months)
 
 During / Pre
+
+
+CompareTimes <- function(BNFDesc) {
+  Lockdown <- CompleteDataset %>%
+    filter(Lockdown == "Y",
+           str_detect(BNFItemDescription, glue("{BNFDesc}"))) %>%
+    reframe(Sum = sum(MonthsContraception) / Months) %>%
+    unique()
+  PostLockdown <- CompleteDataset %>%
+    filter(Lockdown == "N",
+           Period == "3",
+           str_detect(BNFItemDescription, glue("{BNFDesc}"))) %>%
+    reframe(Sum = sum(MonthsContraception) / Months) %>%
+    unique()
+  PreLockdown <- CompleteDataset %>%
+    filter(Lockdown == "N",
+           Period == "1",
+           str_detect(BNFItemDescription, glue("{BNFDesc}"))) %>%
+    reframe(Sum = sum(MonthsContraception) / Months) %>%
+    unique()
+  PeriLockdown <- CompleteDataset %>%
+    filter(Lockdown == "N",
+           Period == "2",
+           str_detect(BNFItemDescription, glue("{BNFDesc}"))) %>%
+    reframe(Sum = sum(MonthsContraception) / Months) %>%
+    unique()
+
+  return(unlist(
+    c(
+      Lockdown / PreLockdown,
+      PeriLockdown / PreLockdown,
+      PostLockdown / PreLockdown
+    )
+  ))
+}
+
+CompareTimes("SAYANA")
+
+CompareTimes("DEPO")
+
+
+g <- CompleteDataset %>%
+  filter(Period2 == "3",
+         str_detect(BNFItemDescription, "SAYANA")) %>%
+  reframe(Sum = sum(MonthsContraception) / Months) %>%
+  unique() %>%
+  deframe()
+
+
+tibble(c(a, b, c, d, 0, b/a, c/a, d/a),
+       c(e, f, g, h, 0, f/e, g/e, h/e))
+
+
+
+
+
+
+
+
+
+
 #############################################################################
 ###ENDS###
 #############################################################################
